@@ -1,6 +1,9 @@
 package com.github.bromel777.mireaCrypto.services
 
-trait CertificationService[F[_]] {
+import java.security.PrivateKey
 
-  def createKeyPair: F[]
+import com.comcast.ip4s.{Ipv4Address, SocketAddress}
+
+trait CertificationService[F[_]] {
+  def registerKeyPair(privateKey: PrivateKey, certCenterIp: SocketAddress[Ipv4Address]): F[Boolean]
 }
