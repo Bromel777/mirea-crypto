@@ -19,6 +19,6 @@ object Protocol {
     val codec: Codec[UserMessage] = discriminated[UserMessage]
       .by(uint8)
       .typecase(1, (publicKeyCodec.encodeOnly :: Codec[BitVector]).as[RegisterKey])
-      .typecase(2, (publicKeyCodec.encodeOnly :: Codec[BitVector]).as[.as[RegisterKey]])
+      .typecase(2, (publicKeyCodec.encodeOnly :: Codec[BitVector]).as[RegisterKey])
   }
 }
