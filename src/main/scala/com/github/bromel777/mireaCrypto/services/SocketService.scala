@@ -1,17 +1,20 @@
 package com.github.bromel777.mireaCrypto.services
 
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, ContextShift, Resource}
 import cats.implicits._
+import com.comcast.ip4s.{Ipv4Address, SocketAddress}
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
 import fs2.Stream
 import fs2.concurrent.Queue
-import fs2.io.tcp.Socket
+import fs2.io.tcp.{Socket, SocketGroup}
+import io.chrisdavenport.log4cats.Logger
 import scodec.{Decoder, Encoder}
 import scodec.stream.{StreamDecoder, StreamEncoder}
 
 trait SocketService[F[_]] {
   def read: Stream[F, UserMessage]
   def write(msg: UserMessage): F[Unit]
+  def close: F[Unit]
 }
 
 object SocketService {
@@ -33,10 +36,16 @@ object SocketService {
       }
 
     override def write(msg: UserMessage): F[Unit] = queue.enqueue1(msg)
+
+    override def close: F[Unit] = socket.close
   }
 
-  def apply[F[_]: Concurrent](socket: Socket[F]): F[SocketService[F]] =
-    for {
-      queue <- Queue.bounded[F, UserMessage](100)
-    } yield new Live(socket, queue)
+  def apply[F[_]: Concurrent: ContextShift: Logger](socketGroup: SocketGroup,
+                                            peerIp: SocketAddress[Ipv4Address]): Resource[F, SocketService[F]] =
+    socketGroup.client(peerIp.toInetSocketAddress).flatMap { socket =>
+      Resource.make[F, SocketService[F]](
+        Queue.bounded[F, UserMessage](100).map { queue =>
+          new Live[F](socket, queue)
+        })( _.close >> Logger[F].warn(s"Connection with ${peerIp} was closed!") )
+    }
 }
