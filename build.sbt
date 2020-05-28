@@ -20,7 +20,7 @@ libraryDependencies ++= Seq(
   "com.comcast" %% "ip4s-cats" % "1.2.1",
   "ru.tinkoff" %% "tofu" % "0.7.5",
   "org.iq80.leveldb" % "leveldb" % "0.9",
-  "org.scodec" %% "scodec-core" % "1.10.3"
+  "org.scodec" %% "scodec-stream" % "2.0.0"
 )
 
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
