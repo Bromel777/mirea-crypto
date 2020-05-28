@@ -3,12 +3,11 @@ package com.github.bromel777.mireaCrypto.commands
 import cats.Monad
 import com.github.bromel777.mireaCrypto.services.KeyService
 import cats.implicits._
-import com.github.bromel777.mireaCrypto.levelDb.Database
 import io.chrisdavenport.log4cats.Logger
 import tofu.common.Console
 import tofu.syntax.console._
 
-class CreateKeyPair[F[_]: Monad: Logger: Console](keyService: KeyService[F], db: Database[F]) extends Command[F] {
+case class CreateKeyPair[F[_]: Monad: Logger: Console](keyService: KeyService[F]) extends Command[F] {
 
   override val name: String = "createKeyPair"
 
