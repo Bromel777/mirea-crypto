@@ -6,7 +6,9 @@ import fs2.Stream
 import cats.implicits._
 import com.github.bromel777.mireaCrypto.commands.Command
 import com.github.bromel777.mireaCrypto.levelDb.Database
+import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
 import com.github.bromel777.mireaCrypto.services.KeyService
+import fs2.concurrent.Queue
 import io.chrisdavenport.log4cats.Logger
 import tofu.common.Console
 import tofu.syntax.console._
@@ -17,15 +19,20 @@ trait ConsoleProgram[F[_]] {
 }
 
 object ConsoleProgram {
-  private class Live[F[_]: Sync: Logger: Console](keyService: KeyService[F]) extends ConsoleProgram[F] {
 
-    private val commands = Command.commands(keyService)
+  private class Live[F[_]: Sync: Logger: Console](keyService: KeyService[F],
+                                                  netOutMsgsQueue: Queue[F, UserMessage]) extends ConsoleProgram[F] {
+
+    private val commands = Command.commands(keyService, netOutMsgsQueue)
 
     private val readCommand: F[Unit] = for {
       _ <- putStrLn("Write your command:")
-      command <- readStrLn
-      _ <- commands.find(_.name == command).get.execute
-      _ <- putStrLn(s"Your command: $command")
+      input <- readStrLn
+      _ <- {
+        input.split(" ").toList match {
+          case command :: args => commands.find(_.name == command).get.execute(args)
+        }
+      }
     } yield ()
 
     override def run: Stream[F, Unit] = Stream(())
@@ -34,6 +41,7 @@ object ConsoleProgram {
       .evalMap[F, Unit](_ => readCommand)
   }
 
-  def apply[F[_]: Sync: Console: Logger](keyService: KeyService[F]): F[ConsoleProgram[F]] =
-    Applicative[F].pure(new Live[F](keyService))
+  def apply[F[_]: Sync: Console: Logger](keyService: KeyService[F],
+                                         netOutMsgsQueue: Queue[F, UserMessage]): F[ConsoleProgram[F]] =
+    Applicative[F].pure(new Live[F](keyService, netOutMsgsQueue))
 }

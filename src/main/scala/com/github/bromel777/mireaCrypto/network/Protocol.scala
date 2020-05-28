@@ -9,16 +9,14 @@ import scodec.codecs.implicits._
 
 object Protocol {
 
-  val publicKeyCodec = Codec[BitVector].contramap((pubKey: PublicKey) => BitVector(pubKey.getEncoded))
-
   sealed trait UserMessage
   object UserMessage {
-    case class RegisterKey(publicKey: PublicKey, signature: BitVector) extends UserMessage
-    case class SendMsgToUser(recipientPublicKey: PublicKey, msgCyptherText: Array[Byte]) extends UserMessage
+    case class RegisterKey(publicKey: BitVector, signature: BitVector) extends UserMessage
+    case class SendMsgToUser(recipientPublicKey: BitVector, msgCyptherText: BitVector) extends UserMessage
 
     val codec: Codec[UserMessage] = discriminated[UserMessage]
       .by(uint8)
-      .typecase(1, (publicKeyCodec.encodeOnly :: Codec[BitVector]).as[RegisterKey])
-      .typecase(2, (publicKeyCodec.encodeOnly :: Codec[BitVector]).as[RegisterKey])
+      .typecase(1, (Codec[BitVector] :: Codec[BitVector]).as[RegisterKey])
+      .typecase(2, (Codec[BitVector] :: Codec[BitVector]).as[SendMsgToUser])
   }
 }

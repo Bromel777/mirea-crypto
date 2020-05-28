@@ -11,7 +11,7 @@ case class CreateKeyPair[F[_]: Monad: Logger: Console](keyService: KeyService[F]
 
   override val name: String = "createKeyPair"
 
-  override def execute: F[Unit] = for {
+  override def execute(args: List[String]): F[Unit] = for {
     keyPair <- keyService.createKeyPair
     _ <- keyService.saveKeyPair(keyPair)
     _ <- Logger[F].info(s"Create key pair with public key: ${keyPair.getPublic}")

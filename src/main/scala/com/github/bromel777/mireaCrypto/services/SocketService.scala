@@ -1,5 +1,6 @@
 package com.github.bromel777.mireaCrypto.services
 
+import cats.Applicative
 import cats.effect.{Concurrent, ContextShift, Resource}
 import cats.implicits._
 import com.comcast.ip4s.{Ipv4Address, SocketAddress}
@@ -19,17 +20,19 @@ trait SocketService[F[_]] {
 
 object SocketService {
 
-  private final class Live[F[_]: Concurrent](socket: Socket[F], queue: Queue[F, UserMessage]) extends SocketService[F] {
+  private final class Live[F[_]: Concurrent: Logger](socket: Socket[F],
+                                                     queue: Queue[F, UserMessage]) extends SocketService[F] {
 
     override def read: Stream[F, UserMessage] =
       {
         val readStream = socket
           .reads(1024)
-          .through(StreamDecoder.many(UserMessage.codec.asDecoder).toPipeByte)
+          .through(StreamDecoder.many(UserMessage.codec).toPipeByte)
 
         val writeStream = queue
           .dequeue
-          .through(StreamEncoder.many(UserMessage.codec.asEncoder).toPipeByte)
+          .evalTap(msg => Logger[F].info(s"Write: ${msg}"))
+          .through(StreamEncoder.many(UserMessage.codec).toPipeByte)
           .through(socket.writes(None))
 
         readStream concurrently writeStream
@@ -41,11 +44,15 @@ object SocketService {
   }
 
   def apply[F[_]: Concurrent: ContextShift: Logger](socketGroup: SocketGroup,
-                                            peerIp: SocketAddress[Ipv4Address]): Resource[F, SocketService[F]] =
+                                                    peerIp: SocketAddress[Ipv4Address],
+                                                    toNetMsgsQueue: Queue[F, UserMessage]): Resource[F, SocketService[F]] =
     socketGroup.client(peerIp.toInetSocketAddress).flatMap { socket =>
       Resource.make[F, SocketService[F]](
-        Queue.bounded[F, UserMessage](100).map { queue =>
-          new Live[F](socket, queue)
-        })( _.close >> Logger[F].warn(s"Connection with ${peerIp} was closed!") )
+        Applicative[F].pure(new Live[F](socket, toNetMsgsQueue)))( _.close >> Logger[F].warn(s"Connection with ${peerIp} was closed!") )
     }
+
+  def apply[F[_]: Concurrent: ContextShift: Logger](socket: Socket[F],
+                                                    toNetMsgsQueue: Queue[F, UserMessage]): Resource[F, SocketService[F]] =
+    Resource.make[F, SocketService[F]](
+      Applicative[F].pure(new Live[F](socket, toNetMsgsQueue)))( _.close >> Logger[F].warn(s"Connection was closed!") )
 }

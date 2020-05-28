@@ -14,6 +14,7 @@ import com.github.bromel777.mireaCrypto.services.KeyService
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import scodec.bits.BitVector
 import fs2.Stream
+import fs2.concurrent.Queue
 import io.chrisdavenport.log4cats.Logger
 
 final class Application[F[_]: Concurrent: ContextShift: Logger](config: ApplicationSettings) {
@@ -23,7 +24,7 @@ final class Application[F[_]: Concurrent: ContextShift: Logger](config: Applicat
   }
 
   private val database = for {
-    db <- Database[F](new File("db"))
+    db <- Database[F](new File(config.dbFolder))
   } yield db
 
   private def services(db: Database[F]) = for {
@@ -33,8 +34,9 @@ final class Application[F[_]: Concurrent: ContextShift: Logger](config: Applicat
   private val programs = for {
     db <- Stream.resource(database)
     services <- Stream.eval(services(db))
-    netProg <- Stream.resource(NetworkProgram[F](config))
-    consoleProg <- Stream.eval(ConsoleProgram[F](services))
+    queue <- Stream.eval(Queue.bounded[F, UserMessage](100))
+    netProg <- Stream.resource(NetworkProgram[F](config, queue))
+    consoleProg <- Stream.eval(ConsoleProgram[F](services, queue))
   } yield (netProg, consoleProg)
 }
 
@@ -42,8 +44,10 @@ object Application extends IOApp {
 
   println(ECDSA.privateKey)
   val publicKey = ECDSA.public
-  val userMessage = RegisterKey(publicKey, BitVector(Array((1: Byte))))
-  println(UserMessage.codec.encode(userMessage))
+  val userMessage = RegisterKey(BitVector(publicKey.getEncoded), BitVector(Array((1: Byte))))
+  val encoded = UserMessage.codec.encode(userMessage).require
+  println(encoded)
+  println(UserMessage.codec.decode(encoded).require)
 
   def apply[F[_]: Concurrent: ContextShift](): F[Application[F]] = for {
     config  <- Sync[F].delay(ApplicationSettings.loadConfig("application.conf"))

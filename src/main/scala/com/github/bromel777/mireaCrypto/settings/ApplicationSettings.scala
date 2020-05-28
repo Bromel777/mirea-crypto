@@ -8,7 +8,8 @@ import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
 
 case class ApplicationSettings(bindPort: Port,
-                               knownPeers: List[SocketAddress[Ipv4Address]])
+                               knownPeers: List[SocketAddress[Ipv4Address]],
+                               dbFolder: String)
 
 object ApplicationSettings {
 
