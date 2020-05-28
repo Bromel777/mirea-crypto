@@ -1,7 +1,8 @@
 package com.github.bromel777.mireaCrypto.services
 
-import java.security.PrivateKey
+import java.security.{KeyPair, PrivateKey}
 
 trait KeyService[F[_]] {
-  def createKey: F[PrivateKey]
+  def createKeyPair: F[KeyPair]
+  def saveKeyPair(pair: KeyPair): F[Unit]
 }

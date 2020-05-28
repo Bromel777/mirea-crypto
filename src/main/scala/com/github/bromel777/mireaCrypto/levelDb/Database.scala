@@ -2,6 +2,12 @@ package com.github.bromel777.mireaCrypto.levelDb
 
 import java.io.File
 
+import cats.Applicative
+import cats.effect.{Resource, Sync}
+import org.iq80.leveldb.{DB, Options}
+import cats.syntax.option._
+import cats.syntax.applicative._
+
 trait Database[F[_]] {
   def put(key: Array[Byte], value: Array[Byte]): F[Unit]
   def get(key: Array[Byte]): F[Option[Array[Byte]]]

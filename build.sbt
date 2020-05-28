@@ -18,9 +18,12 @@ libraryDependencies ++= Seq(
   "org.scodec" %% "scodec-core" % "1.10.3",
   "io.chrisdavenport" %% "log4cats-slf4j" % "0.4.0-M2",
   "com.comcast" %% "ip4s-cats" % "1.2.1",
-  "ru.tinkoff" %% "tofu" % "0.7.5"
+  "ru.tinkoff" %% "tofu" % "0.7.5",
+  "org.iq80.leveldb" % "leveldb" % "0.9",
+  "org.scodec" %% "scodec-core" % "1.10.3"
 )
 
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
 val crypto = (project in file(".")).settings(settings: _*)

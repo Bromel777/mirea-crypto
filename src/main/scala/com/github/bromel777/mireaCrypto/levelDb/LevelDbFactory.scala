@@ -1,5 +1,8 @@
 package com.github.bromel777.mireaCrypto.levelDb
 
+import cats.effect.Sync
+import org.iq80.leveldb.DBFactory
+
 import scala.util.Try
 
 object LevelDbFactory {
