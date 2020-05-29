@@ -50,10 +50,6 @@ object Application extends IOApp {
 
   Security.addProvider(new BouncyCastleProvider)
 
-  val a = "test".getBytes
-  val cipherText = Blowfish.encrypt(a, "123".getBytes)
-  val decryptText = Blowfish.decrypt(cipherText, "123".getBytes)
-
   def apply[F[_]: Concurrent: ContextShift](): F[Application[F]] = for {
     config  <- Sync[F].delay(ApplicationSettings.loadConfig("application.conf"))
     implicit0(logger: Logger[F])  <- Slf4jLogger.create[F]

@@ -22,27 +22,4 @@ object ECDSA {
   val pair: KeyPair = g.genKeyPair()
 
   val fact: KeyFactory = KeyFactory.getInstance("ECDSA", "BC");
-  val public: PublicKey = fact.generatePublic(new X509EncodedKeySpec(pair.getPublic.getEncoded));
-  val privateKey: PrivateKey = fact.generatePrivate(new PKCS8EncodedKeySpec(pair.getPrivate.getEncoded));
-
-  val firstPair = g.genKeyPair()
-  val firstPublic = firstPair.getPublic.asInstanceOf[BCECPublicKey]
-  val firstPrivate = firstPair.getPrivate.asInstanceOf[BCECPrivateKey]
-  val secondPair = g.genKeyPair()
-  val secondPrivate = secondPair.getPrivate.asInstanceOf[BCECPrivateKey]
-  val secondPublic = secondPair.getPublic.asInstanceOf[BCECPublicKey]
-  val pubKey = pair.getPublic
-  val privKey = pair.getPrivate.asInstanceOf[BCECPrivateKey]
-//  val pubKeyParams = new ECPublicKeyParameters(parameters.getG.multiply(privKey.getD), parameters)
-//  println(s"At 123: ${parameters.getG.multiply(new BigInteger(Array(123: Byte)))}")
-//  println("All sum: " + parameters.getG.multiply(new BigInteger(Array(123: Byte))).add(pubKey))
-//
-//  println(s"Private key: ${privKey.getD}")
-//  val res = multiplier.multiply(generator, privKey.getD)
-//  println(s"prx = ${res.getXCoord}")
-//  println(s"pry = ${res.getYCoord}")
-//  val res = pubKey.getQ.multiply(new BigInteger(Array(123: Byte)))
-//  println(res)
- // val anotherRes = res.multiply()
-//  println("=================")
 }
