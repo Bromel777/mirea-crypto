@@ -9,7 +9,9 @@ import net.ceedubs.ficus.readers.ValueReader
 
 case class ApplicationSettings(bindPort: Port,
                                knownPeers: List[SocketAddress[Ipv4Address]],
-                               dbFolder: String)
+                               dbFolder: String,
+                               certificationCenterAddr: SocketAddress[Ipv4Address],
+                               myLogin: String)
 
 object ApplicationSettings {
 

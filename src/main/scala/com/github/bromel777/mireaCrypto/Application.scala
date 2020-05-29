@@ -1,10 +1,12 @@
 package com.github.bromel777.mireaCrypto
 
 import java.io.File
+import java.net.InetSocketAddress
+import java.security.Security
 
 import cats.effect.{Blocker, Concurrent, ContextShift, ExitCode, IO, IOApp, Sync}
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
-import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage.RegisterKey
+import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage.{InitDialog, RegisterKey}
 import com.github.bromel777.mireaCrypto.programs.{ConsoleProgram, NetworkProgram}
 import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
 import com.github.bromel777.mireaCrypto.utils.ECDSA
@@ -16,6 +18,7 @@ import scodec.bits.BitVector
 import fs2.Stream
 import fs2.concurrent.Queue
 import io.chrisdavenport.log4cats.Logger
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 final class Application[F[_]: Concurrent: ContextShift: Logger](config: ApplicationSettings) {
 
@@ -35,21 +38,19 @@ final class Application[F[_]: Concurrent: ContextShift: Logger](config: Applicat
   private val programs = for {
     db <- Stream.resource(database)
     services <- Stream.eval(services(db))
-    queue <- Stream.eval(Queue.bounded[F, UserMessage](100))
+    queue <- Stream.eval(Queue.bounded[F, (UserMessage, InetSocketAddress)](100))
     netProg <- Stream.resource(NetworkProgram[F](config, queue, services._2))
-    consoleProg <- Stream.eval(ConsoleProgram[F](services._1, queue))
+    consoleProg <- Stream.eval(ConsoleProgram[F](services._1, queue, config))
   } yield (netProg, consoleProg)
 }
 
 object Application extends IOApp {
 
+  Security.addProvider(new BouncyCastleProvider)
+
   println(ECDSA.privateKey)
   val publicKey = ECDSA.public
-  val userMessage = RegisterKey(BitVector(publicKey.getEncoded), BitVector(Array((1: Byte))))
-  println(publicKey.getEncoded.length)
-  val encoded = UserMessage.codec.encode(userMessage).require
-  println(encoded)
-  println(UserMessage.codec.decode(encoded).require)
+  val userMessage = InitDialog(BitVector.empty)
 
   def apply[F[_]: Concurrent: ContextShift](): F[Application[F]] = for {
     config  <- Sync[F].delay(ApplicationSettings.loadConfig("application.conf"))

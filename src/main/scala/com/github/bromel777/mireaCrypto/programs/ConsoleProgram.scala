@@ -1,5 +1,7 @@
 package com.github.bromel777.mireaCrypto.programs
 
+import java.net.InetSocketAddress
+
 import cats.Applicative
 import cats.effect.Sync
 import fs2.Stream
@@ -8,6 +10,7 @@ import com.github.bromel777.mireaCrypto.commands.Command
 import com.github.bromel777.mireaCrypto.levelDb.Database
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
 import com.github.bromel777.mireaCrypto.services.KeyService
+import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
 import fs2.concurrent.Queue
 import io.chrisdavenport.log4cats.Logger
 import tofu.common.Console
@@ -21,9 +24,10 @@ trait ConsoleProgram[F[_]] {
 object ConsoleProgram {
 
   private class Live[F[_]: Sync: Logger: Console](keyService: KeyService[F],
-                                                  netOutMsgsQueue: Queue[F, UserMessage]) extends ConsoleProgram[F] {
+                                                  netOutMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
+                                                  settings: ApplicationSettings) extends ConsoleProgram[F] {
 
-    private val commands = Command.commands(keyService, netOutMsgsQueue)
+    private val commands = Command.commands(keyService, netOutMsgsQueue, settings)
 
     private val readCommand: F[Unit] = for {
       _ <- putStrLn("Write your command:")
@@ -42,6 +46,7 @@ object ConsoleProgram {
   }
 
   def apply[F[_]: Sync: Console: Logger](keyService: KeyService[F],
-                                         netOutMsgsQueue: Queue[F, UserMessage]): F[ConsoleProgram[F]] =
-    Applicative[F].pure(new Live[F](keyService, netOutMsgsQueue))
+                                         netOutMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
+                                         settings: ApplicationSettings): F[ConsoleProgram[F]] =
+    Applicative[F].pure(new Live[F](keyService, netOutMsgsQueue, settings))
 }

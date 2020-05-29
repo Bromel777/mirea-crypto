@@ -1,6 +1,6 @@
 package com.github.bromel777.mireaCrypto.services
 
-import java.net.{SocketAddress => JSocketAddr}
+import java.net.{InetSocketAddress, SocketAddress => JSocketAddr}
 
 import cats.Applicative
 import cats.effect.{Concurrent, ContextShift, Resource}
@@ -23,7 +23,7 @@ trait SocketService[F[_]] {
 object SocketService {
 
   private final class Live[F[_]: Concurrent: Logger](socket: Socket[F],
-                                                     queue: Queue[F, UserMessage]) extends SocketService[F] {
+                                                     queue: Queue[F, (UserMessage, InetSocketAddress)]) extends SocketService[F] {
 
     override def read: Stream[F, (UserMessage, JSocketAddr)] =
       {
@@ -32,30 +32,45 @@ object SocketService {
           .through(StreamDecoder.many(UserMessage.codec).toPipeByte)
           .evalMap(msg => socket.remoteAddress.map(addr => (msg, addr)))
 
-        val writeStream = queue
-          .dequeue
-          .evalTap(msg => Logger[F].info(s"Write: ${msg}"))
-          .through(StreamEncoder.many(UserMessage.codec).toPipeByte)
-          .through(socket.writes(None))
+        val writeSt = for {
+          elem <- queue.dequeue
+          remoteAddr <- Stream.eval(socket.remoteAddress)
+          _ <- if (elem._2 == remoteAddr.asInstanceOf[InetSocketAddress])
+            Stream.emit(elem._1)
+              .evalTap(msg => Logger[F].info(s"Write: ${msg}"))
+              .through(StreamEncoder.many(UserMessage.codec).toPipeByte)
+              .through(socket.writes(None))
+            else
+            Stream.eval(Logger[F].info("Not for me"))
+        } yield ()
 
-        readStream concurrently writeStream
+//        val writeStream = queue
+//          .dequeue
+//          .evalTap(msg => Logger[F].info(s"Write: ${msg}"))
+//          .through(StreamEncoder.many(UserMessage.codec).toPipeByte)
+//          .through(socket.writes(None))
+
+        readStream concurrently writeSt
       }
 
-    override def write(msg: UserMessage): F[Unit] = queue.enqueue1(msg)
+    override def write(msg: UserMessage): F[Unit] = for {
+      myAddr <- socket.remoteAddress
+      _ <- queue.enqueue1(msg -> myAddr.asInstanceOf[InetSocketAddress])
+    } yield ()
 
     override def close: F[Unit] = socket.close
   }
 
   def apply[F[_]: Concurrent: ContextShift: Logger](socketGroup: SocketGroup,
                                                     peerIp: SocketAddress[Ipv4Address],
-                                                    toNetMsgsQueue: Queue[F, UserMessage]): Resource[F, SocketService[F]] =
+                                                    toNetMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)]): Resource[F, SocketService[F]] =
     socketGroup.client(peerIp.toInetSocketAddress).flatMap { socket =>
       Resource.make[F, SocketService[F]](
         Applicative[F].pure(new Live[F](socket, toNetMsgsQueue)))( _.close >> Logger[F].warn(s"Connection with ${peerIp} was closed!") )
     }
 
   def apply[F[_]: Concurrent: ContextShift: Logger](socket: Socket[F],
-                                                    toNetMsgsQueue: Queue[F, UserMessage]): Resource[F, SocketService[F]] =
+                                                    toNetMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)]): Resource[F, SocketService[F]] =
     Resource.make[F, SocketService[F]](
       Applicative[F].pure(new Live[F](socket, toNetMsgsQueue)))( _.close >> Logger[F].warn(s"Connection was closed!") )
 }

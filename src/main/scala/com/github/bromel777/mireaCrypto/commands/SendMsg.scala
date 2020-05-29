@@ -1,5 +1,6 @@
 package com.github.bromel777.mireaCrypto.commands
 
+import java.net.InetSocketAddress
 import java.security.{KeyPairGenerator, SecureRandom}
 
 import cats.effect.Sync
@@ -8,12 +9,15 @@ import fs2.concurrent.Queue
 import tofu.common.Console
 import tofu.syntax.console._
 import cats.implicits._
+import com.comcast.ip4s.SocketAddress
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage.SendMsgToUser
+import com.github.bromel777.mireaCrypto.services.CertificationService
 import org.bouncycastle.jce.ECNamedCurveTable
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
 import scodec.bits.BitVector
 
-case class SendMsg[F[_]: Sync: Console](toNetMsgsQueue: Queue[F, UserMessage]) extends Command[F] {
+case class SendMsg[F[_]: Sync: Console](toNetMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
+                                        certService: CertificationService[F]) extends Command[F] {
 
   private val ecSpec: ECNamedCurveParameterSpec = ECNamedCurveTable.getParameterSpec("prime192v1")
   private val g: KeyPairGenerator = KeyPairGenerator.getInstance("ECDSA", "BC")
@@ -26,6 +30,9 @@ case class SendMsg[F[_]: Sync: Console](toNetMsgsQueue: Queue[F, UserMessage]) e
 
   override def execute(args: List[String]): F[Unit] = for {
     _ <- putStrLn(s"Write msg: ${args.head}")
-    _ <- toNetMsgsQueue.enqueue1(SendMsgToUser(BitVector(pair.getPublic.getEncoded), BitVector(args.head.getBytes())))
+    _ <- toNetMsgsQueue.enqueue1(
+      SendMsgToUser(BitVector(pair.getPublic.getEncoded), BitVector(args.head.getBytes())) ->
+        SocketAddress.fromString4(args.last).get.toInetSocketAddress
+    )
   } yield ()
 }
