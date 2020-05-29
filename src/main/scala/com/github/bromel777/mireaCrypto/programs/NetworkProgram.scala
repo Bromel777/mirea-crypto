@@ -48,7 +48,7 @@ object NetworkProgram {
       _           <- Stream.eval(updateActiveConnection(addr.asInstanceOf[InetSocketAddress], service))
     } yield service.read).parJoinUnbounded.evalMap { case (msg, remote) =>
       for {
-        _ <- Logger[F].info(s"Got ${msg}")
+        _ <- Logger[F].info(s"Got ${msg} from ${remote}")
         _ <- proccessIncomingMsg(
           msg,
           remote,
@@ -89,7 +89,7 @@ object NetworkProgram {
       } yield ()
       case SendMsgToUser(senderLogin, msgCyptherBytes) => for {
         key <- cipherService.deriveCipherKey(senderLogin.toByteArray.map(_.toChar).mkString)
-        _ <- Logger[F].info(s"Receive msg: ${Blowfish.encrypt(msgCyptherBytes.toByteArray, key).map(_.toChar).mkString}")
+        _ <- Logger[F].info(s"Receive msg: ${Blowfish.decrypt(msgCyptherBytes.toByteArray, key.toByteArray).map(_.toChar).mkString}")
       } yield ()
       case GetUserKey(loginBytes) => for {
         userKey <- certCervice.getUserPublicKey(loginBytes.toByteArray)

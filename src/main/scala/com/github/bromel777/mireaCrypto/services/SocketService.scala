@@ -30,8 +30,8 @@ object SocketService {
         val readStream = socket
           .reads(1024)
           .through(StreamDecoder.many(UserMessage.codec).toPipeByte)
-          .evalTap(_ => socket.localAddress.map(addr => Logger[F].info(s"Socket remote: ${addr}")))
-          .evalMap(msg => socket.localAddress.map(addr => (msg, addr)))
+          .evalTap(_ => socket.remoteAddress.map(addr => Logger[F].info(s"Socket remote: ${addr}")))
+          .evalMap(msg => socket.remoteAddress.map(addr => (msg, addr)))
 
         val writeSt = for {
           elem <- queue.dequeue
@@ -43,8 +43,10 @@ object SocketService {
               .evalTap(msg => Logger[F].info(s"Write: ${msg}"))
               .through(StreamEncoder.many(UserMessage.codec).toPipeByte)
               .through(socket.writes(None))
-            else
-            Stream.eval(Logger[F].info("Not for me"))
+            else for {
+              _ <- Stream.eval(Logger[F].info("Not for me"))
+              _ <- Stream.eval(queue.enqueue1(elem))
+            } yield ()
         } yield ()
 
 //        val writeStream = queue

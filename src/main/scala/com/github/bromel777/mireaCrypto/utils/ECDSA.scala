@@ -31,10 +31,9 @@ object ECDSA {
   val secondPair = g.genKeyPair()
   val secondPrivate = secondPair.getPrivate.asInstanceOf[BCECPrivateKey]
   val secondPublic = secondPair.getPublic.asInstanceOf[BCECPublicKey]
-//  val pubKey = pair.getPublic.asInstanceOf
-//  val privKey = pair.getPrivate.asInstanceOf[BCECPrivateKey]
+  val pubKey = pair.getPublic
+  val privKey = pair.getPrivate.asInstanceOf[BCECPrivateKey]
 //  val pubKeyParams = new ECPublicKeyParameters(parameters.getG.multiply(privKey.getD), parameters)
-  //println(pubKey.getParameters.getCurve.getA.getAffineXCoord)
 //  println(s"At 123: ${parameters.getG.multiply(new BigInteger(Array(123: Byte)))}")
 //  println("All sum: " + parameters.getG.multiply(new BigInteger(Array(123: Byte))).add(pubKey))
 //

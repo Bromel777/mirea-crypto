@@ -27,9 +27,9 @@ case class SendMsg[F[_]: Sync: Console](toNetMsgsQueue: Queue[F, (UserMessage, I
   override def execute(args: List[String]): F[Unit] = for {
     _ <- putStrLn(s"Write msg: ${args.head}")
     code <- cipherService.deriveCipherKey(args.last)
-    _ <- putStrLn(s"Cipher code: ${code.map(_.toChar).mkString}")
+    _ <- putStrLn(s"Cipher code: ${code}")
     _ <- toNetMsgsQueue.enqueue1(
-      SendMsgToUser(BitVector(settings.myLogin.getBytes), BitVector(Blowfish.encrypt(args.head.getBytes, code))) ->
+      SendMsgToUser(BitVector(settings.myLogin.getBytes), BitVector(Blowfish.encrypt(args.head.getBytes, code.toByteArray))) ->
         SocketAddress.fromString4(args.init.last).get.toInetSocketAddress
     )
   } yield ()

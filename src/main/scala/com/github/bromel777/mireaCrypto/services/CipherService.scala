@@ -10,7 +10,7 @@ import org.bouncycastle.jcajce.provider.asymmetric.ec.{BCECPrivateKey, BCECPubli
 
 trait CipherService[F[_]] {
 
-  def deriveCipherKey(userLogin: String): F[Array[Byte]]
+  def deriveCipherKey(userLogin: String): F[BigInt]
 }
 
 object CipherService {
@@ -18,13 +18,16 @@ object CipherService {
   final class Live[F[_]: Sync: Logger](certificationService: CertificationService[F],
                                        keyService: KeyService[F]) extends CipherService[F] {
 
-    override def deriveCipherKey(userLogin: String): F[Array[Byte]] = for {
+    override def deriveCipherKey(userLogin: String): F[BigInt] = for {
       userKey <- certificationService.getUserPublicKey(userLogin.getBytes)
       myKeys <- keyService.getKeyPair
+      _ <- Logger[F].info(s"User public key: ${userKey}")
+      _ <- Logger[F].info(s"MyPublicKey: ${myKeys._2}\n MyPrivateKey: ${myKeys._1}")
       cipherKey <- Sync[F].delay(
         userKey.asInstanceOf[BCECPublicKey].getQ.multiply(myKeys._1.asInstanceOf[BCECPrivateKey].getD)
       )
-    } yield cipherKey.getEncoded(false)
+      _ <- Logger[F].info(s"Common key: ${BigInt(cipherKey.getEncoded(false).take(10))}")
+    } yield BigInt(cipherKey.getEncoded(false).take(10))
   }
 
   def apply[F[_]: Sync: Logger](certificationService: CertificationService[F],
