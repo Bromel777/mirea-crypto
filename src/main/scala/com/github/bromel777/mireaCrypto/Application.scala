@@ -10,7 +10,7 @@ import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
 import com.github.bromel777.mireaCrypto.utils.ECDSA
 import cats.implicits._
 import com.github.bromel777.mireaCrypto.levelDb.Database
-import com.github.bromel777.mireaCrypto.services.KeyService
+import com.github.bromel777.mireaCrypto.services.{CertificationService, KeyService}
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import scodec.bits.BitVector
 import fs2.Stream
@@ -29,14 +29,15 @@ final class Application[F[_]: Concurrent: ContextShift: Logger](config: Applicat
 
   private def services(db: Database[F]) = for {
     keyService <- KeyService[F](db)
-  } yield (keyService)
+    certService <- CertificationService[F](db)
+  } yield (keyService, certService)
 
   private val programs = for {
     db <- Stream.resource(database)
     services <- Stream.eval(services(db))
     queue <- Stream.eval(Queue.bounded[F, UserMessage](100))
-    netProg <- Stream.resource(NetworkProgram[F](config, queue))
-    consoleProg <- Stream.eval(ConsoleProgram[F](services, queue))
+    netProg <- Stream.resource(NetworkProgram[F](config, queue, services._2))
+    consoleProg <- Stream.eval(ConsoleProgram[F](services._1, queue))
   } yield (netProg, consoleProg)
 }
 
@@ -45,6 +46,7 @@ object Application extends IOApp {
   println(ECDSA.privateKey)
   val publicKey = ECDSA.public
   val userMessage = RegisterKey(BitVector(publicKey.getEncoded), BitVector(Array((1: Byte))))
+  println(publicKey.getEncoded.length)
   val encoded = UserMessage.codec.encode(userMessage).require
   println(encoded)
   println(UserMessage.codec.decode(encoded).require)

@@ -1,5 +1,7 @@
 package com.github.bromel777.mireaCrypto.services
 
+import java.net.{SocketAddress => JSocketAddr}
+
 import cats.Applicative
 import cats.effect.{Concurrent, ContextShift, Resource}
 import cats.implicits._
@@ -13,7 +15,7 @@ import scodec.{Decoder, Encoder}
 import scodec.stream.{StreamDecoder, StreamEncoder}
 
 trait SocketService[F[_]] {
-  def read: Stream[F, UserMessage]
+  def read: Stream[F, (UserMessage, JSocketAddr)]
   def write(msg: UserMessage): F[Unit]
   def close: F[Unit]
 }
@@ -23,11 +25,12 @@ object SocketService {
   private final class Live[F[_]: Concurrent: Logger](socket: Socket[F],
                                                      queue: Queue[F, UserMessage]) extends SocketService[F] {
 
-    override def read: Stream[F, UserMessage] =
+    override def read: Stream[F, (UserMessage, JSocketAddr)] =
       {
         val readStream = socket
           .reads(1024)
           .through(StreamDecoder.many(UserMessage.codec).toPipeByte)
+          .evalMap(msg => socket.remoteAddress.map(addr => (msg, addr)))
 
         val writeStream = queue
           .dequeue

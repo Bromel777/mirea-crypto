@@ -20,6 +20,7 @@ object Command {
   def commands[F[_]: Sync: Logger: Console](keyService: KeyService[F],
                                             toNetMsgs: Queue[F, UserMessage]): List[Command[F]] = List(
     CreateKeyPair[F](keyService),
-    SendMsg[F](toNetMsgs)
+    SendMsg[F](toNetMsgs),
+    RegKey[F](toNetMsgs, keyService)
   )
 }

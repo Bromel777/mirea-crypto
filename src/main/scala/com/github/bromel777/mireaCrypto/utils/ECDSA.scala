@@ -16,7 +16,7 @@ object ECDSA {
   g.initialize(ecSpec, new SecureRandom())
   val pair: KeyPair = g.generateKeyPair
 
-  val fact = KeyFactory.getInstance("ECDSA", "BC");
+  val fact: KeyFactory = KeyFactory.getInstance("ECDSA", "BC");
   val public: PublicKey = fact.generatePublic(new X509EncodedKeySpec(pair.getPublic.getEncoded));
   val privateKey: PrivateKey = fact.generatePrivate(new PKCS8EncodedKeySpec(pair.getPrivate.getEncoded));
 }

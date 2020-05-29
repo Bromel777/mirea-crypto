@@ -1,7 +1,5 @@
 package com.github.bromel777.mireaCrypto.network
 
-import java.security.PublicKey
-
 import scodec._
 import scodec.bits._
 import codecs._
@@ -11,8 +9,8 @@ object Protocol {
 
   sealed trait UserMessage
   object UserMessage {
-    case class RegisterKey(publicKey: BitVector, signature: BitVector) extends UserMessage
-    case class SendMsgToUser(recipientPublicKey: BitVector, msgCyptherText: BitVector) extends UserMessage
+    case class RegisterKey(publicKeyBytes: BitVector, signatureBytes: BitVector) extends UserMessage
+    case class SendMsgToUser(recipientPublicKeyBytes: BitVector, msgCyptherBytes: BitVector) extends UserMessage
 
     val codec: Codec[UserMessage] = discriminated[UserMessage]
       .by(uint8)
