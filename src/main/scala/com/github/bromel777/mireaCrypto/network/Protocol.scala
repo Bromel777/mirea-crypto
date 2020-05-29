@@ -10,7 +10,7 @@ object Protocol {
   sealed trait UserMessage
   object UserMessage {
     case class RegisterKey(publicKeyBytes: BitVector, signatureBytes: BitVector, userLogin: BitVector) extends UserMessage
-    case class SendMsgToUser(recipientPublicKeyBytes: BitVector, msgCyptherBytes: BitVector) extends UserMessage
+    case class SendMsgToUser(senderLogin: BitVector, msgCyptherBytes: BitVector) extends UserMessage
     case class GetUserKey(userLogin: BitVector) extends UserMessage
     case class UserPublicKey(publicKeyBytes: BitVector, userLogin: BitVector) extends UserMessage
     case class InitDialog(key: BitVector) extends UserMessage

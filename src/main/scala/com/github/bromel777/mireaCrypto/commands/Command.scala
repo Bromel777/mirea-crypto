@@ -5,7 +5,7 @@ import java.net.InetSocketAddress
 import cats.Monad
 import cats.effect.Sync
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
-import com.github.bromel777.mireaCrypto.services.KeyService
+import com.github.bromel777.mireaCrypto.services.{CipherService, KeyService}
 import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
 import fs2.concurrent.Queue
 import io.chrisdavenport.log4cats.Logger
@@ -22,9 +22,10 @@ object Command {
 
   def commands[F[_]: Sync: Logger: Console](keyService: KeyService[F],
                                             toNetMsgs: Queue[F, (UserMessage, InetSocketAddress)],
+                                            cipherService: CipherService[F],
                                             settings: ApplicationSettings): List[Command[F]] = List(
     CreateKeyPair[F](keyService),
-    SendMsg[F](toNetMsgs),
+    SendMsg[F](toNetMsgs, cipherService, settings),
     RegKey[F](toNetMsgs, keyService, settings),
     GetUserKeyFromCenter[F](toNetMsgs, keyService, settings),
   )

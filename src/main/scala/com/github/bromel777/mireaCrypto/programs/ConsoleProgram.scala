@@ -9,7 +9,7 @@ import cats.implicits._
 import com.github.bromel777.mireaCrypto.commands.Command
 import com.github.bromel777.mireaCrypto.levelDb.Database
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
-import com.github.bromel777.mireaCrypto.services.KeyService
+import com.github.bromel777.mireaCrypto.services.{CipherService, KeyService}
 import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
 import fs2.concurrent.Queue
 import io.chrisdavenport.log4cats.Logger
@@ -25,9 +25,10 @@ object ConsoleProgram {
 
   private class Live[F[_]: Sync: Logger: Console](keyService: KeyService[F],
                                                   netOutMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
+                                                  cipherService: CipherService[F],
                                                   settings: ApplicationSettings) extends ConsoleProgram[F] {
 
-    private val commands = Command.commands(keyService, netOutMsgsQueue, settings)
+    private val commands = Command.commands(keyService, netOutMsgsQueue, cipherService, settings)
 
     private val readCommand: F[Unit] = for {
       _ <- putStrLn("Write your command:")
@@ -47,6 +48,7 @@ object ConsoleProgram {
 
   def apply[F[_]: Sync: Console: Logger](keyService: KeyService[F],
                                          netOutMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
+                                         cipherService: CipherService[F],
                                          settings: ApplicationSettings): F[ConsoleProgram[F]] =
-    Applicative[F].pure(new Live[F](keyService, netOutMsgsQueue, settings))
+    Applicative[F].pure(new Live[F](keyService, netOutMsgsQueue, cipherService, settings))
 }

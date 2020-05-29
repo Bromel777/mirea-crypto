@@ -30,12 +30,15 @@ object SocketService {
         val readStream = socket
           .reads(1024)
           .through(StreamDecoder.many(UserMessage.codec).toPipeByte)
-          .evalMap(msg => socket.remoteAddress.map(addr => (msg, addr)))
+          .evalTap(_ => socket.localAddress.map(addr => Logger[F].info(s"Socket remote: ${addr}")))
+          .evalMap(msg => socket.localAddress.map(addr => (msg, addr)))
 
         val writeSt = for {
           elem <- queue.dequeue
           remoteAddr <- Stream.eval(socket.remoteAddress)
-          _ <- if (elem._2 == remoteAddr.asInstanceOf[InetSocketAddress])
+          localAddr <- Stream.eval(socket.localAddress)
+          _ <- Stream.eval(Logger[F].info(s"remote addr: ${remoteAddr}"))
+          _ <- if (elem._2.asInstanceOf[JSocketAddr] == remoteAddr || elem._2.asInstanceOf[JSocketAddr] == localAddr)
             Stream.emit(elem._1)
               .evalTap(msg => Logger[F].info(s"Write: ${msg}"))
               .through(StreamEncoder.many(UserMessage.codec).toPipeByte)

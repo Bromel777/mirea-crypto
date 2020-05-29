@@ -15,8 +15,9 @@ import cats.syntax.applicative._
 import com.comcast.ip4s.{Ipv4Address, SocketAddress}
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage.{GetUserKey, RegisterKey, SendMsgToUser, UserPublicKey}
-import com.github.bromel777.mireaCrypto.services.{CertificationService, KeyService, SocketService}
+import com.github.bromel777.mireaCrypto.services.{CertificationService, CipherService, KeyService, SocketService}
 import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
+import com.github.bromel777.mireaCrypto.utils.Blowfish
 import fs2.concurrent.Queue
 import scodec.bits.BitVector
 
@@ -34,6 +35,7 @@ object NetworkProgram {
    activeConnections: Ref[F, Map[InetSocketAddress, SocketService[F]]],
    config: ApplicationSettings,
    certCervice: CertificationService[F],
+   cipherService: CipherService[F],
   ) extends NetworkProgram[F] {
 
     private val startServer = (for {
@@ -85,10 +87,13 @@ object NetworkProgram {
           userLogin.toByteArray
         )
       } yield ()
-      case SendMsgToUser(myPublicKeyBytes, msgCyptherBytes) =>
-        Logger[F].info(s"Receive msg: ${msgCyptherBytes.toByteArray.map(_.toChar).mkString}")
+      case SendMsgToUser(senderLogin, msgCyptherBytes) => for {
+        key <- cipherService.deriveCipherKey(senderLogin.toByteArray.map(_.toChar).mkString)
+        _ <- Logger[F].info(s"Receive msg: ${Blowfish.encrypt(msgCyptherBytes.toByteArray, key).map(_.toChar).mkString}")
+      } yield ()
       case GetUserKey(loginBytes) => for {
         userKey <- certCervice.getUserPublicKey(loginBytes.toByteArray)
+        _ <- Logger[F].info(s"send back to: ${clientIp}")
         _ <- toNetMsgsQueue.enqueue1(
           UserPublicKey(
             BitVector(userKey.getEncoded),
@@ -110,14 +115,15 @@ object NetworkProgram {
 
   def apply[F[_]: Concurrent: ContextShift: Logger](config: ApplicationSettings,
                                                     toNetMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
-                                                    certService: CertificationService[F]): Resource[F, NetworkProgram[F]] =
+                                                    certService: CertificationService[F],
+                                                    cipherService: CipherService[F]): Resource[F, NetworkProgram[F]] =
     Blocker[F].flatMap { blocker =>
       SocketGroup[F](blocker).evalMap { socketGroup =>
         for {
           queue <- Queue.bounded[F, SocketAddress[Ipv4Address]](100)
           activeConnections <- Ref.of[F, Map[InetSocketAddress, SocketService[F]]](Map.empty[InetSocketAddress, SocketService[F]])
-          _ <- config.knownPeers.traverse(peer => queue.enqueue1(peer))
-        } yield new Live(socketGroup, queue, toNetMsgsQueue, activeConnections, config, certService)
+          _ <- (config.certificationCenterAddr :: config.knownPeers).traverse(peer => queue.enqueue1(peer))
+        } yield new Live(socketGroup, queue, toNetMsgsQueue, activeConnections, config, certService, cipherService)
       }
     }
 }

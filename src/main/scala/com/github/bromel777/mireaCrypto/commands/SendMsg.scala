@@ -11,28 +11,26 @@ import tofu.syntax.console._
 import cats.implicits._
 import com.comcast.ip4s.SocketAddress
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage.SendMsgToUser
-import com.github.bromel777.mireaCrypto.services.CertificationService
+import com.github.bromel777.mireaCrypto.services.{CertificationService, CipherService}
+import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
+import com.github.bromel777.mireaCrypto.utils.Blowfish
 import org.bouncycastle.jce.ECNamedCurveTable
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec
 import scodec.bits.BitVector
 
 case class SendMsg[F[_]: Sync: Console](toNetMsgsQueue: Queue[F, (UserMessage, InetSocketAddress)],
-                                        certService: CertificationService[F]) extends Command[F] {
-
-  private val ecSpec: ECNamedCurveParameterSpec = ECNamedCurveTable.getParameterSpec("prime192v1")
-  private val g: KeyPairGenerator = KeyPairGenerator.getInstance("ECDSA", "BC")
-
-  g.initialize(ecSpec, new SecureRandom())
-
-  val pair = g.generateKeyPair()
+                                        cipherService: CipherService[F],
+                                        settings: ApplicationSettings) extends Command[F] {
 
   override val name: String = "send"
 
   override def execute(args: List[String]): F[Unit] = for {
     _ <- putStrLn(s"Write msg: ${args.head}")
+    code <- cipherService.deriveCipherKey(args.last)
+    _ <- putStrLn(s"Cipher code: ${code.map(_.toChar).mkString}")
     _ <- toNetMsgsQueue.enqueue1(
-      SendMsgToUser(BitVector(pair.getPublic.getEncoded), BitVector(args.head.getBytes())) ->
-        SocketAddress.fromString4(args.last).get.toInetSocketAddress
+      SendMsgToUser(BitVector(settings.myLogin.getBytes), BitVector(Blowfish.encrypt(args.head.getBytes, code))) ->
+        SocketAddress.fromString4(args.init.last).get.toInetSocketAddress
     )
   } yield ()
 }

@@ -9,10 +9,11 @@ import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage
 import com.github.bromel777.mireaCrypto.network.Protocol.UserMessage.{InitDialog, RegisterKey}
 import com.github.bromel777.mireaCrypto.programs.{ConsoleProgram, NetworkProgram}
 import com.github.bromel777.mireaCrypto.settings.ApplicationSettings
-import com.github.bromel777.mireaCrypto.utils.ECDSA
+import com.github.bromel777.mireaCrypto.utils.{Blowfish, ECDSA}
 import cats.implicits._
+import com.comcast.ip4s.SocketAddress
 import com.github.bromel777.mireaCrypto.levelDb.Database
-import com.github.bromel777.mireaCrypto.services.{CertificationService, KeyService}
+import com.github.bromel777.mireaCrypto.services.{CertificationService, CipherService, KeyService}
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import scodec.bits.BitVector
 import fs2.Stream
@@ -33,14 +34,15 @@ final class Application[F[_]: Concurrent: ContextShift: Logger](config: Applicat
   private def services(db: Database[F]) = for {
     keyService <- KeyService[F](db)
     certService <- CertificationService[F](db)
-  } yield (keyService, certService)
+    cipherService <- CipherService[F](certService, keyService)
+  } yield (keyService, certService, cipherService)
 
   private val programs = for {
     db <- Stream.resource(database)
     services <- Stream.eval(services(db))
     queue <- Stream.eval(Queue.bounded[F, (UserMessage, InetSocketAddress)](100))
-    netProg <- Stream.resource(NetworkProgram[F](config, queue, services._2))
-    consoleProg <- Stream.eval(ConsoleProgram[F](services._1, queue, config))
+    netProg <- Stream.resource(NetworkProgram[F](config, queue, services._2, services._3))
+    consoleProg <- Stream.eval(ConsoleProgram[F](services._1, queue, services._3, config))
   } yield (netProg, consoleProg)
 }
 
@@ -48,9 +50,9 @@ object Application extends IOApp {
 
   Security.addProvider(new BouncyCastleProvider)
 
-  println(ECDSA.privateKey)
-  val publicKey = ECDSA.public
-  val userMessage = InitDialog(BitVector.empty)
+  val a = "test".getBytes
+  val cipherText = Blowfish.encrypt(a, "123".getBytes)
+  val decryptText = Blowfish.decrypt(cipherText, "123".getBytes)
 
   def apply[F[_]: Concurrent: ContextShift](): F[Application[F]] = for {
     config  <- Sync[F].delay(ApplicationSettings.loadConfig("application.conf"))
